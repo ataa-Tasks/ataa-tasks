@@ -1,312 +1,35 @@
-<!DOCTYPE html>
-<html lang="ar" dir="rtl">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>منصة مهامي – نسخة خفيفة جاهزة للرفع</title>
-  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
-  <style>
-    body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji"; }
-  </style>
-</head>
-<body class="bg-slate-50 text-slate-800">
-  <div class="min-h-screen flex" id="app">
-    <aside class="w-72 h-screen p-4 border-l bg-white sticky top-0">
-      <div class="flex items-center gap-2 mb-6">
-        <span class="inline-flex items-center justify-center w-9 h-9 rounded-2xl bg-emerald-600 text-white font-bold">م</span>
-        <div>
-          <div class="font-bold">منصة مهامي</div>
-          <div class="text-xs text-slate-500">نسخة خفيفة</div>
-        </div>
-      </div>
-      <nav class="space-y-2">
-        <button data-view="dashboard" class="navbtn w-full text-right px-3 py-2 rounded-xl border bg-emerald-50 border-emerald-300 text-emerald-700">لوحة التحكم</button>
-        <button data-view="tasks" class="navbtn w-full text-right px-3 py-2 rounded-xl border bg-white hover:bg-slate-50 border-slate-200">مهامي</button>
-        <button data-view="settings" class="navbtn w-full text-right px-3 py-2 rounded-xl border bg-white hover:bg-slate-50 border-slate-200">إعدادات</button>
-      </nav>
-      <div class="mt-6 border-t pt-4 space-y-2">
-        <button id="exportBtn" class="w-full px-3 py-2 rounded-xl border border-slate-200 hover:bg-slate-50">تصدير البيانات</button>
-        <label class="w-full block">
-          <div class="w-full px-3 py-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-right cursor-pointer">استيراد البيانات</div>
-          <input id="importInput" type="file" accept="application/json" class="hidden" />
-        </label>
-      </div>
-      <div class="mt-6 text-xs text-slate-500">Static v1 | LocalStorage</div>
-    </aside>
+### خطوات رفع النسخة المخصصة على Wasmer
 
-    <main class="flex-1 p-6 space-y-6">
-      <!-- Header -->
-      <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <div>
-          <h1 class="text-2xl font-bold">مركز التحكم</h1>
-          <p class="text-slate-500 text-sm">نسخة بدون بناء – ارفعي هذا الملف مباشرة لأي استضافة.</p>
-        </div>
-        <div class="flex gap-2 items-center">
-          <input id="q" placeholder="ابحث باسم المهمة أو الوصف" class="w-72 px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-300" />
-        </div>
-      </div>
+1. **فك الضغط**:
+   - نزّلي الملف المضغوط `ataa_identity_version.zip`.
+   - فكّي الضغط → بيظهر لك `index.html` + `README.txt` (ولو عندك شعار `logo-ataa.png` ضعيه معهما).
 
-      <!-- Dashboard -->
-      <section id="view-dashboard">
-        <div class="grid md:grid-cols-4 gap-4">
-          <div class="stat p-4 bg-white rounded-2xl border">إجمالي: <b id="total">0</b></div>
-          <div class="stat p-4 bg-white rounded-2xl border">منجزة: <b id="done">0</b></div>
-          <div class="stat p-4 bg-white rounded-2xl border">مستحقة اليوم: <b id="today">0</b></div>
-          <div class="stat p-4 bg-white rounded-2xl border">متأخرة: <b id="overdue">0</b></div>
-        </div>
+2. **إنشاء مستودع جديد على GitHub**:
+   - ادخلي حسابك في GitHub → اضغطي زر **New repository**.
+   - سمي المستودع `ataa-tasks` (خليه Public).
+   - اضغطي **Create repository**.
 
-        <div class="grid md:grid-cols-2 gap-6 mt-6">
-          <div class="p-4 bg-white rounded-2xl border border-slate-200">
-            <div class="font-bold mb-3">إضافة سريعة</div>
-            <div class="space-y-3">
-              <input id="title" class="w-full px-3 py-2 rounded-xl border border-slate-200" placeholder="عنوان المهمة" />
-              <textarea id="desc" class="w-full px-3 py-2 rounded-xl border border-slate-200" placeholder="وصف مختصر"></textarea>
-              <div class="grid grid-cols-2 gap-3">
-                <select id="priority" class="px-3 py-2 rounded-xl border border-slate-200">
-                  <option>عاجلة</option><option selected>متوسطة</option><option>مرتفعة</option><option>منخفضة</option>
-                </select>
-                <input id="due" type="date" class="px-3 py-2 rounded-xl border border-slate-200" />
-              </div>
-              <button id="addBtn" class="px-4 py-2 rounded-xl bg-emerald-600 text-white hover:bg-emerald-700">+ أضف</button>
-            </div>
-          </div>
+3. **رفع الملفات**:
+   - في المستودع الجديد، اضغطي **Upload files**.
+   - اسحبي وأسقطي `index.html` و `README.txt` (والشعار إن وُجد).
+   - **مهم**: يكون ملف `index.html` في الجذر مباشرة، مو داخل مجلد فرعي.
+   - اضغطي **Commit changes**.
 
-          <div class="p-4 bg-white rounded-2xl border border-slate-200">
-            <div class="font-bold mb-3">نسبة الإنجاز</div>
-            <div class="w-full h-3 bg-slate-100 rounded-full overflow-hidden">
-              <div id="progress" class="h-full bg-emerald-600" style="width:0%"></div>
-            </div>
-            <p class="text-sm text-slate-500 mt-2">حافظي على وتيرة ثابتة. 1% يوميًا يصنع فرقًا.</p>
-          </div>
-        </div>
-      </section>
+4. **الربط مع Wasmer**:
+   - ادخلي على: [https://wasmer.io/apps/honeysaudi/ataa-tasks](https://wasmer.io/apps/honeysaudi/ataa-tasks).
+   - اختاري المستودع `ataa-tasks` من GitHub.
+   - Project preset = `staticfile`.
+   - في إعداد **Public dir**: اكتبي `.` أو اتركيه فاضي (لأن `index.html` موجود في الجذر).
+   - اضغطي **Deploy now!**.
 
-      <!-- Tasks -->
-      <section id="view-tasks" class="hidden">
-        <div class="p-4 bg-white rounded-2xl border border-slate-200">
-          <div class="grid md:grid-cols-4 gap-3">
-            <select id="f-status" class="px-3 py-2 rounded-xl border border-slate-200">
-              <option value="">كل الحالات</option>
-              <option>بانتظار</option><option>قيد التنفيذ</option><option>منجزة</option><option>مؤجلة</option>
-            </select>
-            <select id="f-priority" class="px-3 py-2 rounded-xl border border-slate-200">
-              <option value="">كل الأولويات</option>
-              <option>عاجلة</option><option>مرتفعة</option><option>متوسطة</option><option>منخفضة</option>
-            </select>
-            <input id="f-label" placeholder="وسم (اختياري)" class="px-3 py-2 rounded-xl border border-slate-200" />
-            <input id="f-due" type="date" class="px-3 py-2 rounded-xl border border-slate-200" />
-          </div>
-        </div>
+5. **التجربة**:
+   - افتحي الرابط: `https://ataa-tasks.wasmer.app/`.
+   - لازم تشوفين نسخة منصة مهامي بالهوية البصرية لجمعية عطاء.
 
-        <div class="overflow-auto rounded-2xl border border-slate-200 mt-4">
-          <table class="min-w-full text-sm">
-            <thead class="bg-slate-100 text-slate-600">
-              <tr>
-                <th class="p-3 text-right">المهمة</th>
-                <th class="p-3 text-right">الوسوم</th>
-                <th class="p-3 text-right">الأولوية</th>
-                <th class="p-3 text-right">الحالة</th>
-                <th class="p-3 text-right">تاريخ الاستحقاق</th>
-                <th class="p-3 text-right">إجراءات</th>
-              </tr>
-            </thead>
-            <tbody id="taskTable"></tbody>
-          </table>
-        </div>
-      </section>
+🔔 **ملاحظات**:
+- أي تعديل مستقبلي على `index.html` في GitHub → اعملي Commit جديد → ثم Redeploy من Wasmer.
+- تأكدي أن صورة الشعار محفوظة بنفس الاسم `logo-ataa.png` في المستودع لو حبيتي يظهر شعار الجمعية.
 
-      <!-- Settings -->
-      <section id="view-settings" class="hidden">
-        <div class="p-4 bg-white rounded-2xl border border-slate-200">
-          <div class="font-bold mb-2">ملاحظة</div>
-          <p class="text-sm text-slate-600">هذه نسخة خفيفة لا تحتاج بناء. يكفي رفع هذا الملف <b>index.html</b> على أي استضافة مجانية.</p>
-        </div>
-      </section>
-    </main>
-  </div>
-
-  <script>
-  (function(){
-    const STORAGE_KEY = "mahami_static_v1";
-    const todayISO = () => new Date().toISOString().slice(0,10);
-    const uid = () => Math.random().toString(36).slice(2) + Date.now().toString(36);
-
-    let state = load() || seed();
-    const views = ["dashboard","tasks","settings"];
-    const navBtns = document.querySelectorAll(".navbtn");
-
-    // events
-    navBtns.forEach(b=> b.addEventListener("click", ()=> showView(b.dataset.view)));
-    document.getElementById("addBtn").addEventListener("click", addTask);
-    document.getElementById("q").addEventListener("input", renderAll);
-    document.getElementById("f-status").addEventListener("change", renderAll);
-    document.getElementById("f-priority").addEventListener("change", renderAll);
-    document.getElementById("f-label").addEventListener("input", renderAll);
-    document.getElementById("f-due").addEventListener("change", renderAll);
-    document.getElementById("exportBtn").addEventListener("click", exportJSON);
-    document.getElementById("importInput").addEventListener("change", (e)=>{
-      const file = e.target.files && e.target.files[0];
-      if(!file) return;
-      const r = new FileReader();
-      r.onload = () => {
-        try {
-          const data = JSON.parse(String(r.result));
-          state = data;
-          save();
-          renderAll();
-        } catch(e){ alert("ملف غير صالح"); }
-      };
-      r.readAsText(file);
-    });
-
-    // init
-    document.getElementById("due").value = todayISO();
-    renderAll();
-    showView("dashboard");
-
-    function seed(){
-      return {
-        tasks: [
-          {id: uid(), title:"تحضير قائمة حضور الأحد", desc:"تأكيد الأسماء + ربط مع النقل + تجهيز الضيافة", labels:["التوثيق"], priority:"مرتفعة", status:"قيد التنفيذ", due: todayISO(), createdAt: todayISO()},
-          {id: uid(), title:"تحديث نموذج متابعة الشواهد", desc:"مزامنة الورقة مع Drive + مشاركة الرابط مع المشرفات", labels:["التوثيق"], priority:"متوسطة", status:"بانتظار", due: todayISO(), createdAt: todayISO()},
-          {id: uid(), title:"التواصل مع جهة ضيافة (70-90 وجبة)", desc:"صياغة الخطاب + إرسال واتساب للمشهورة + متابعة الرد", labels:["شراكات","الميزانية"], priority:"عاجلة", status:"بانتظار", due: todayISO(), createdAt: todayISO()}
-        ]
-      };
-    }
-
-    function load(){
-      try { return JSON.parse(localStorage.getItem(STORAGE_KEY)); } catch(e){ return null; }
-    }
-    function save(){
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-    }
-    function exportJSON(){
-      const blob = new Blob([JSON.stringify(state, null, 2)], {type:"application/json;charset=utf-8"});
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url; a.download = "mahami-data.json"; a.click();
-      URL.revokeObjectURL(url);
-    }
-
-    // UI helpers
-    function showView(v){
-      views.forEach(key => {
-        document.getElementById("view-"+key).classList.toggle("hidden", key!==v);
-      });
-      document.querySelectorAll(".navbtn").forEach(btn => {
-        const active = btn.dataset.view === v;
-        btn.classList.toggle("bg-emerald-50", active);
-        btn.classList.toggle("border-emerald-300", active);
-        btn.classList.toggle("text-emerald-700", active);
-      });
-    }
-    function badgePriority(p){
-      const base = "px-2 py-1 rounded-full text-xs font-semibold border ";
-      if(p==="عاجلة") return base+"bg-red-100 text-red-800 border-red-200";
-      if(p==="مرتفعة") return base+"bg-orange-100 text-orange-800 border-orange-200";
-      if(p==="متوسطة") return base+"bg-amber-100 text-amber-800 border-amber-200";
-      return base+"bg-slate-100 text-slate-700 border-slate-200";
-    }
-    function fmtDate(iso){
-      try { return new Date(iso).toLocaleDateString("ar-SA",{year:"numeric",month:"2-digit",day:"2-digit"});} catch{ return iso||"-";}
-    }
-
-    // actions
-    function addTask(){
-      const title = document.getElementById("title").value.trim();
-      const desc = document.getElementById("desc").value.trim();
-      const priority = document.getElementById("priority").value;
-      const due = document.getElementById("due").value || todayISO();
-      if(!title) return;
-      state.tasks.unshift({id: uid(), title, desc, labels:[], priority, status:"بانتظار", due, createdAt: todayISO()});
-      document.getElementById("title").value="";
-      document.getElementById("desc").value="";
-      document.getElementById("priority").value="متوسطة";
-      document.getElementById("due").value=todayISO();
-      save(); renderAll();
-    }
-    function toggleDone(id){
-      const t = state.tasks.find(x=>x.id===id);
-      if(!t) return;
-      t.status = t.status==="منجزة" ? "بانتظار" : "منجزة";
-      save(); renderAll();
-    }
-    function deleteTask(id){
-      state.tasks = state.tasks.filter(x=>x.id!==id);
-      save(); renderAll();
-    }
-    function updateTitle(id){
-      const t = state.tasks.find(x=>x.id===id);
-      if(!t) return;
-      const x = prompt("عنوان جديد:", t.title);
-      if(x) { t.title = x; save(); renderAll(); }
-    }
-    function moveTo(id, status){
-      const t = state.tasks.find(x=>x.id===id);
-      if(!t) return;
-      t.status = status;
-      save(); renderAll();
-    }
-
-    // render
-    function renderAll(){
-      const q = document.getElementById("q").value.trim();
-      const fs = document.getElementById("f-status").value;
-      const fp = document.getElementById("f-priority").value;
-      const fl = document.getElementById("f-label").value.trim();
-      const fd = document.getElementById("f-due").value;
-
-      const filtered = state.tasks.filter(t=>{
-        const matchQ = !q || (t.title+" "+(t.desc||"")).includes(q);
-        const matchS = !fs || t.status===fs;
-        const matchP = !fp || t.priority===fp;
-        const matchL = !fl || ((t.labels||[]).includes(fl));
-        const matchD = !fd || t.due===fd;
-        return matchQ && matchS && matchP && matchL && matchD;
-      });
-
-      // stats
-      const total = state.tasks.length;
-      const done = state.tasks.filter(t=>t.status==="منجزة").length;
-      const today = state.tasks.filter(t=>t.due===todayISO()).length;
-      const overdue = state.tasks.filter(t=>t.due && new Date(t.due)<new Date() && t.status!=="منجزة").length;
-      document.getElementById("total").textContent = total;
-      document.getElementById("done").textContent = done;
-      document.getElementById("today").textContent = today;
-      document.getElementById("overdue").textContent = overdue;
-      document.getElementById("progress").style.width = (total? Math.round(done/total*100):0) + "%";
-
-      // table
-      const tbody = document.getElementById("taskTable");
-      tbody.innerHTML = filtered.map(t => `
-        <tr class="border-t">
-          <td class="p-3">
-            <div class="font-semibold">${t.title}</div>
-            <div class="text-slate-500 text-xs">${t.desc||""}</div>
-          </td>
-          <td class="p-3"><div class="flex flex-wrap gap-1">${(t.labels||[]).map(l=>`<span class="px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200 text-xs">${l}</span>`).join("")}</div></td>
-          <td class="p-3"><span class="${badgePriority(t.priority)}">${t.priority}</span></td>
-          <td class="p-3">
-            <select onchange="__move('${t.id}', this.value)" class="px-2 py-1 rounded-lg border border-slate-200 text-xs">
-              ${["بانتظار","قيد التنفيذ","منجزة","مؤجلة"].map(s=>`<option ${t.status===s?"selected":""}>${s}</option>`).join("")}
-            </select>
-          </td>
-          <td class="p-3 whitespace-nowrap">${fmtDate(t.due)}</td>
-          <td class="p-3 space-x-2 space-x-reverse">
-            <button onclick="__toggle('${t.id}')" class="px-2 py-1 rounded-lg bg-emerald-600 text-white text-xs">${t.status==="منجزة"?"إرجاع":"إنهاء"}</button>
-            <button onclick="__edit('${t.id}')" class="px-2 py-1 rounded-lg border border-slate-200 text-xs">تعديل</button>
-            <button onclick="__delete('${t.id}')" class="px-2 py-1 rounded-lg bg-rose-600 text-white text-xs">حذف</button>
-          </td>
-        </tr>
-      `).join("");
-
-      // expose simple API for inline handlers
-      window.__toggle = toggleDone;
-      window.__delete = deleteTask;
-      window.__edit = updateTitle;
-      window.__move = moveTo;
-    }
-  })();
   </script>
 </body>
 </html>
