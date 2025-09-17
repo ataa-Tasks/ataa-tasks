@@ -1,8 +1,493 @@
-<!DOCTYPE html>
-<html lang="ar" dir="rtl"><head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>منصة مهامي — مساحات</title>
-<link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet"></head>
-<body class="bg-gray-50 text-slate-800"><div class="max-w-3xl mx-auto p-6">
-<h1 class="text-2xl font-bold mb-4">منصة مهامي — نسخة مختصرة</h1>
-<p>تم إنشاء ملف <b>index.html</b> كامل في الخطوة السابقة لكنه فُقد مع إعادة التشغيل. سأعيد توليد الملف الكامل لك فورًا لو رغبتِ.</p>
-</div></body></html>
+import React, { useEffect, useState, useMemo, useRef } from "react";
+
+/**
+ * منصة إدارة المهام — نسخة مخصصة
+ * للحالات:
+ *  - الإشراف على فصول تبيان
+ *  - متابعة مشرفات النادي
+ *  - متابعة مهام الإدارية أسماء
+ *  - إضافة مهام جديدة وتتبعها (مع وسوم وروابط ومالك)
+ *
+ * ميزات سريعة:
+ *  - Spaces (مساحات عمل): فصول تبيان / مشرفات النادي / الإدارية أسماء / عام
+ *  - فلترة حسب المساحة والحالة والأولوية والتاريخ + بحث نصي
+ *  - استيراد/تصدير CSV (بما فيها عمود space)
+ *  - حفظ تلقائي محلي LocalStorage
+ *  - إحصاءات عامة + عدّادات لكل مساحة
+ */
+
+// الأنواع
+ type Status = "بانتظار" | "قيد التنفيذ" | "منجزة" | "مؤجلة";
+ type Priority = "عاجلة" | "مرتفعة" | "متوسطة" | "منخفضة";
+ type Space = "فصول تبيان" | "مشرفات النادي" | "الإدارية أسماء" | "عام";
+
+ type Task = {
+   id: string;
+   title: string;
+   desc?: string;
+   priority: Priority;
+   status: Status;
+   due?: string; // YYYY-MM-DD
+   createdAt: string; // YYYY-MM-DD
+   labels?: string[];
+   owner?: string; // المسؤول
+   link?: string; // رابط ملف داعم
+   space: Space; // المساحة/الوحدة
+ };
+
+ // أدوات مساعدة
+ const uid = () => Math.random().toString(36).slice(2) + Date.now().toString(36);
+ const todayISO = () => new Date().toISOString().slice(0, 10);
+ const STORAGE_KEY = "mahami_spaces_v1";
+ const SPACES: Space[] = ["فصول تبيان", "مشرفات النادي", "الإدارية أسماء", "عام"];
+
+ // بيانات أولية (Seed) مفيدة للبدء
+ function seed(): Task[] {
+   return [
+     {
+       id: uid(),
+       title: "تحضير خطة أسبوع تبيان",
+       desc: "توزيع المعلمات + الأهداف القرائية",
+       priority: "مرتفعة",
+       status: "قيد التنفيذ",
+       due: todayISO(),
+       createdAt: todayISO(),
+       labels: ["خطة", "قراءة"],
+       owner: "هنيه",
+       link: undefined,
+       space: "فصول تبيان",
+     },
+     {
+       id: uid(),
+       title: "متابعة تقارير المشرفات",
+       desc: "استلام نماذج الحضور والانضباط",
+       priority: "متوسطة",
+       status: "بانتظار",
+       due: todayISO(),
+       createdAt: todayISO(),
+       labels: ["تقارير", "انضباط"],
+       owner: "هنيه",
+       link: undefined,
+       space: "مشرفات النادي",
+     },
+     {
+       id: uid(),
+       title: "مهام الإدارية أسماء — أرشفة الشواهد",
+       desc: "رفع الشواهد على Drive وترقيمها",
+       priority: "عاجلة",
+       status: "بانتظار",
+       due: todayISO(),
+       createdAt: todayISO(),
+       labels: ["شواهد", "أرشفة"],
+       owner: "أسماء",
+       link: "https://drive.google.com/",
+       space: "الإدارية أسماء",
+     },
+   ];
+ }
+
+ export default function App() {
+   // تحميل/حفظ
+   const [tasks, setTasks] = useState<Task[]>(() => {
+     try {
+       const raw = localStorage.getItem(STORAGE_KEY);
+       return raw ? (JSON.parse(raw) as Task[]) : seed();
+     } catch {
+       return seed();
+     }
+   });
+   useEffect(() => {
+     localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
+   }, [tasks]);
+
+   // نموذج إضافة
+   const [title, setTitle] = useState("");
+   const [desc, setDesc] = useState("");
+   const [priority, setPriority] = useState<Priority>("متوسطة");
+   const [due, setDue] = useState<string>(todayISO());
+   const [labels, setLabels] = useState<string>("");
+   const [owner, setOwner] = useState<string>("");
+   const [link, setLink] = useState<string>("");
+   const [space, setSpace] = useState<Space>("فصول تبيان");
+
+   // بحث/فلترة/ترتيب
+   const [q, setQ] = useState("");
+   const [fSpace, setFSpace] = useState<Space | "">("");
+   const [fStatus, setFStatus] = useState<Status | "">("");
+   const [fPriority, setFPriority] = useState<Priority | "">("");
+   const [fDue, setFDue] = useState<string>("");
+   const [sortAsc, setSortAsc] = useState<boolean>(true);
+
+   // CSV
+   const importRef = useRef<HTMLInputElement | null>(null);
+
+   const addTask = () => {
+     if (!title.trim()) return;
+     const t: Task = {
+       id: uid(),
+       title: title.trim(),
+       desc: desc.trim() || undefined,
+       priority,
+       status: "بانتظار",
+       due: due || undefined,
+       createdAt: todayISO(),
+       labels: labels
+         .split(",")
+         .map((x) => x.trim())
+         .filter(Boolean),
+       owner: owner.trim() || undefined,
+       link: link.trim() || undefined,
+       space,
+     };
+     setTasks((arr) => [t, ...arr]);
+     // تفريغ
+     setTitle("");
+     setDesc("");
+     setPriority("متوسطة");
+     setDue(todayISO());
+     setLabels("");
+     setOwner("");
+     setLink("");
+     setSpace("فصول تبيان");
+   };
+
+   const removeTask = (id: string) => setTasks((arr) => arr.filter((t) => t.id !== id));
+   const toggleDone = (id: string) =>
+     setTasks((arr) => arr.map((t) => (t.id === id ? { ...t, status: t.status === "منجزة" ? "بانتظار" : "منجزة" } : t)));
+   const updateStatus = (id: string, status: Status) => setTasks((arr) => arr.map((t) => (t.id === id ? { ...t, status } : t)));
+
+   // فلترة + ترتيب
+   const filtered = useMemo(() => {
+     const base = tasks.filter((t) => {
+       const matchQ =
+         !q || (t.title + " " + (t.desc || "") + " " + (t.owner || "") + " " + (t.labels || []).join(" ")).includes(q);
+       const matchSpace = !fSpace || t.space === fSpace;
+       const matchS = !fStatus || t.status === fStatus;
+       const matchP = !fPriority || t.priority === fPriority;
+       const matchD = !fDue || t.due === fDue;
+       return matchQ && matchSpace && matchS && matchP && matchD;
+     });
+     const sorted = [...base].sort((a, b) => {
+       const da = a.due ? Date.parse(a.due) : sortAsc ? Infinity : -Infinity;
+       const db = b.due ? Date.parse(b.due) : sortAsc ? Infinity : -Infinity;
+       return sortAsc ? da - db : db - da;
+     });
+     return sorted;
+   }, [tasks, q, fSpace, fStatus, fPriority, fDue, sortAsc]);
+
+   // إحصاءات عامة + لكل مساحة
+   const total = tasks.length;
+   const done = tasks.filter((t) => t.status === "منجزة").length;
+   const todayCount = tasks.filter((t) => t.due === todayISO()).length;
+   const overdue = tasks.filter((t) => t.due && new Date(t.due) < new Date() && t.status !== "منجزة").length;
+   const bySpace = SPACES.map((s) => ({
+     space: s,
+     total: tasks.filter((t) => t.space === s).length,
+     open: tasks.filter((t) => t.space === s && t.status !== "منجزة").length,
+     done: tasks.filter((t) => t.space === s && t.status === "منجزة").length,
+   }));
+
+   // تصدير CSV (يشمل عمود space)
+   const exportCSV = () => {
+     const header = ["title", "desc", "priority", "status", "due", "createdAt", "labels", "owner", "link", "space"];
+     const rows = tasks.map((t) => [
+       safeCSV(t.title),
+       safeCSV(t.desc || ""),
+       safeCSV(t.priority),
+       safeCSV(t.status),
+       safeCSV(t.due || ""),
+       safeCSV(t.createdAt),
+       safeCSV((t.labels || []).join("|")),
+       safeCSV(t.owner || ""),
+       safeCSV(t.link || ""),
+       safeCSV(t.space),
+     ]);
+     const csv = [header.join(","), ...rows.map((r) => r.join(","))].join("\n");
+     const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+     const url = URL.createObjectURL(blob);
+     const a = document.createElement("a");
+     a.href = url;
+     a.download = `mahami-${todayISO()}.csv`;
+     a.click();
+     URL.revokeObjectURL(url);
+   };
+
+   // استيراد CSV (مع space)
+   const onImportCSV = (file: File) => {
+     const reader = new FileReader();
+     reader.onload = () => {
+       try {
+         const text = String(reader.result || "");
+         const parsed = parseCSV(text);
+         const items: Task[] = parsed.rows.map((row) => {
+           const g = (k: string) => row[k] || "";
+           const ls = g("labels")
+             .split("|")
+             .map((x: string) => x.trim())
+             .filter(Boolean);
+           const pr = (g("priority") as Priority) || "متوسطة";
+           const st = (g("status") as Status) || "بانتظار";
+           const sp = (g("space") as Space) || "عام";
+           return {
+             id: uid(),
+             title: g("title") || "بدون عنوان",
+             desc: g("desc") || undefined,
+             priority: ["عاجلة", "مرتفعة", "متوسطة", "منخفضة"].includes(pr) ? pr : "متوسطة",
+             status: ["بانتظار", "قيد التنفيذ", "منجزة", "مؤجلة"].includes(st) ? st : "بانتظار",
+             due: g("due") || undefined,
+             createdAt: todayISO(),
+             labels: ls,
+             owner: g("owner") || undefined,
+             link: g("link") || undefined,
+             space: SPACES.includes(sp) ? sp : "عام",
+           } as Task;
+         });
+         setTasks((arr) => [...items, ...arr]);
+       } catch (e) {
+         alert("ملف CSV غير صالح");
+       }
+     };
+     reader.readAsText(file);
+   };
+
+   return (
+     <div dir="rtl" className="min-h-screen bg-gray-50 text-slate-800">
+       <div className="max-w-7xl mx-auto p-4 space-y-6">
+         {/* رأس الصفحة */}
+         <header className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+           <div>
+             <h1 className="text-2xl font-bold">منصة مهامي — فصول تبيان / المشرفات / الإدارية أسماء</h1>
+             <p className="text-slate-500 text-sm">لوحة واحدة لإدارة كل المهام، مع مساحات عمل منفصلة للتنظيم الذكي.</p>
+           </div>
+           <div className="flex items-center gap-2">
+             <input
+               value={q}
+               onChange={(e) => setQ(e.target.value)}
+               placeholder="بحث: عنوان/وصف/وسم/مسؤول"
+               className="w-full md:w-80 px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-300"
+             />
+             <button onClick={() => { setQ(""); setFSpace(""); setFStatus(""); setFPriority(""); setFDue(""); }} className="px-3 py-2 rounded-xl border border-slate-200 hover:bg-slate-50">مسح</button>
+           </div>
+         </header>
+
+         {/* مساحات العمل: أزرار تبويب سريعة */}
+         <section className="grid md:grid-cols-4 gap-3">
+           {SPACES.map((s) => (
+             <button
+               key={s}
+               onClick={() => setFSpace((v) => (v === s ? "" : s))}
+               className={`px-3 py-2 rounded-xl border ${fSpace === s ? "bg-emerald-50 border-emerald-300 text-emerald-700" : "bg-white border-slate-200"}`}
+               title={`عرض ${s}`}
+             >
+               {s}
+             </button>
+           ))}
+         </section>
+
+         {/* إحصاءات شاملة + لكل مساحة */}
+         <section className="grid md:grid-cols-4 gap-4">
+           <Stat label="إجمالي" value={total} />
+           <Stat label="منجزة" value={done} />
+           <Stat label="اليوم" value={todayCount} />
+           <Stat label="متأخرة" value={overdue} danger />
+         </section>
+         <section className="grid md:grid-cols-4 gap-4">
+           {bySpace.map((x) => (
+             <div key={x.space} className="rounded-2xl p-4 border bg-white border-slate-200">
+               <div className="font-bold">{x.space}</div>
+               <div className="text-sm text-slate-600 mt-1">إجمالي: {x.total} | مفتوحة: {x.open} | منجزة: {x.done}</div>
+             </div>
+           ))}
+         </section>
+
+         {/* إضافة مهمة */}
+         <section className="p-4 bg-white rounded-2xl border border-slate-200">
+           <div className="font-bold mb-3">إضافة مهمة</div>
+           <div className="grid lg:grid-cols-3 md:grid-cols-2 gap-3">
+             <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="عنوان المهمة" className="px-3 py-2 rounded-xl border border-slate-200" />
+             <select value={priority} onChange={(e) => setPriority(e.target.value as Priority)} className="px-3 py-2 rounded-xl border border-slate-200">
+               {(["عاجلة", "مرتفعة", "متوسطة", "منخفضة"] as Priority[]).map((p) => (
+                 <option key={p} value={p}>{p}</option>
+               ))}
+             </select>
+             <select value={space} onChange={(e) => setSpace(e.target.value as Space)} className="px-3 py-2 rounded-xl border border-slate-200">
+               {SPACES.map((s) => (
+                 <option key={s} value={s}>{s}</option>
+               ))}
+             </select>
+             <input type="date" value={due} onChange={(e) => setDue(e.target.value)} className="px-3 py-2 rounded-xl border border-slate-200" />
+             <input value={labels} onChange={(e) => setLabels(e.target.value)} placeholder="وسوم مفصولة بفواصل (مثال: قراءة, متابعة)" className="px-3 py-2 rounded-xl border border-slate-200" />
+             <input value={owner} onChange={(e) => setOwner(e.target.value)} placeholder="المسؤول (مثال: هنيه/أسماء/مشرفة)" className="px-3 py-2 rounded-xl border border-slate-200" />
+             <input value={link} onChange={(e) => setLink(e.target.value)} placeholder="رابط ملف (Excel/Google Sheet/Drive)" className="px-3 py-2 rounded-xl border border-slate-200 lg:col-span-3 md:col-span-2" />
+             <div className="flex items-center gap-2 lg:col-span-3 md:col-span-2">
+               <button onClick={addTask} className="px-4 py-2 rounded-xl bg-emerald-600 text-white hover:bg-emerald-700">+ إضافة</button>
+               <button onClick={exportCSV} className="px-4 py-2 rounded-xl border border-slate-200 hover:bg-slate-50">تصدير CSV</button>
+               <label className="px-4 py-2 rounded-xl border border-slate-200 hover:bg-slate-50 cursor-pointer">
+                 استيراد CSV
+                 <input ref={importRef} type="file" accept=".csv,text/csv" className="hidden" onChange={(e) => e.target.files && onImportCSV(e.target.files[0])} />
+               </label>
+               <span className="text-xs text-slate-500">أعمدة CSV: title, desc, priority, status, due, labels(|), owner, link, space</span>
+             </div>
+           </div>
+         </section>
+
+         {/* فلاتر عامة */}
+         <section className="p-4 bg-white rounded-2xl border border-slate-200">
+           <div className="grid md:grid-cols-6 gap-3">
+             <select value={fSpace} onChange={(e) => setFSpace(e.target.value as Space | "")} className="px-3 py-2 rounded-xl border border-slate-200">
+               <option value="">كل المساحات</option>
+               {SPACES.map((s) => (
+                 <option key={s} value={s}>{s}</option>
+               ))}
+             </select>
+             <select value={fStatus} onChange={(e) => setFStatus(e.target.value as Status | "")} className="px-3 py-2 rounded-xl border border-slate-200">
+               <option value="">كل الحالات</option>
+               {["بانتظار", "قيد التنفيذ", "منجزة", "مؤجلة"].map((s) => (
+                 <option key={s} value={s}>{s}</option>
+               ))}
+             </select>
+             <select value={fPriority} onChange={(e) => setFPriority(e.target.value as Priority | "")} className="px-3 py-2 rounded-xl border border-slate-200">
+               <option value="">كل الأولويات</option>
+               {["عاجلة", "مرتفعة", "متوسطة", "منخفضة"].map((p) => (
+                 <option key={p} value={p}>{p}</option>
+               ))}
+             </select>
+             <input type="date" value={fDue} onChange={(e) => setFDue(e.target.value)} className="px-3 py-2 rounded-xl border border-slate-200" />
+             <button onClick={() => setSortAsc((v) => !v)} className="px-3 py-2 rounded-xl border border-slate-200 hover:bg-slate-50">ترتيب حسب الاستحقاق {sortAsc ? "↑" : "↓"}</button>
+             <button onClick={() => { setQ(""); setFSpace(""); setFStatus(""); setFPriority(""); setFDue(""); }} className="px-3 py-2 rounded-xl border border-slate-200 hover:bg-slate-50">إعادة ضبط</button>
+           </div>
+         </section>
+
+         {/* جدول المهام */}
+         <section className="overflow-auto rounded-2xl border border-slate-200">
+           <table className="min-w-full text-sm">
+             <thead className="bg-slate-100 text-slate-600">
+               <tr>
+                 <th className="p-3 text-right">المساحة</th>
+                 <th className="p-3 text-right">المهمة</th>
+                 <th className="p-3 text-right">الوسوم</th>
+                 <th className="p-3 text-right">المسؤول</th>
+                 <th className="p-3 text-right">الأولوية</th>
+                 <th className="p-3 text-right">الحالة</th>
+                 <th className="p-3 text-right">الاستحقاق</th>
+                 <th className="p-3 text-right">رابط</th>
+                 <th className="p-3 text-right">إجراءات</th>
+               </tr>
+             </thead>
+             <tbody>
+               {filtered.map((t) => (
+                 <tr key={t.id} className="border-t">
+                   <td className="p-3 whitespace-nowrap">{t.space}</td>
+                   <td className="p-3">
+                     <div className="font-semibold">{t.title}</div>
+                     {t.desc && <div className="text-slate-500 text-xs">{t.desc}</div>}
+                   </td>
+                   <td className="p-3">
+                     <div className="flex flex-wrap gap-1">
+                       {(t.labels || []).map((l) => (
+                         <span key={l} className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200 text-[11px]">{l}</span>
+                       ))}
+                     </div>
+                   </td>
+                   <td className="p-3 whitespace-nowrap">{t.owner || "-"}</td>
+                   <td className="p-3">
+                     <span className={
+                       "px-2 py-1 rounded-full text-xs font-semibold border " +
+                       (t.priority === "عاجلة"
+                         ? "bg-red-100 text-red-800 border-red-200"
+                         : t.priority === "مرتفعة"
+                         ? "bg-orange-100 text-orange-800 border-orange-200"
+                         : t.priority === "متوسطة"
+                         ? "bg-amber-100 text-amber-800 border-amber-200"
+                         : "bg-slate-100 text-slate-700 border-slate-200")
+                     }>
+                       {t.priority}
+                     </span>
+                   </td>
+                   <td className="p-3">
+                     <select value={t.status} onChange={(e) => updateStatus(t.id, e.target.value as Status)} className="px-2 py-1 rounded-lg border border-slate-200 text-xs">
+                       {["بانتظار", "قيد التنفيذ", "منجزة", "مؤجلة"].map((s) => (
+                         <option key={s} value={s}>{s}</option>
+                       ))}
+                     </select>
+                   </td>
+                   <td className="p-3 whitespace-nowrap">{t.due ? new Date(t.due).toLocaleDateString("ar-SA") : "-"}</td>
+                   <td className="p-3">
+                     {t.link ? (
+                       <a href={t.link} target="_blank" rel="noreferrer" className="text-emerald-700 underline">فتح</a>
+                     ) : (
+                       <span className="text-slate-400">—</span>
+                     )}
+                   </td>
+                   <td className="p-3 space-x-2 space-x-reverse">
+                     <button onClick={() => toggleDone(t.id)} className="px-2 py-1 rounded-lg bg-emerald-600 text-white text-xs">{t.status === "منجزة" ? "إرجاع" : "إنهاء"}</button>
+                     <button onClick={() => setTasks((arr) => arr.map((x) => (x.id === t.id ? { ...x, title: prompt("عنوان جديد:", t.title) || t.title } : x)))} className="px-2 py-1 rounded-lg border border-slate-200 text-xs">تعديل</button>
+                     <button onClick={() => removeTask(t.id)} className="px-2 py-1 rounded-lg bg-rose-600 text-white text-xs">حذف</button>
+                   </td>
+                 </tr>
+               ))}
+               {filtered.length === 0 && (
+                 <tr>
+                   <td colSpan={9} className="p-6 text-center text-slate-500">لا توجد مهام مطابقة.</td>
+                 </tr>
+               )}
+             </tbody>
+           </table>
+         </section>
+
+         {/* تذييل صغير */}
+         <section className="p-4 bg-white rounded-2xl border border-slate-200 text-xs text-slate-500">
+           يمكن طباعة الجدول كـ PDF لرفع الشواهد. | التخزين محلي (لا يحتاج إنترنت بعد الفتح). | للتخصيص اللوني: أخبريني بالألوان والشعار.
+         </section>
+       </div>
+     </div>
+   );
+ }
+
+ function Stat({ label, value, danger }: { label: string; value: number; danger?: boolean }) {
+   return (
+     <div className={`rounded-2xl p-4 border ${danger ? "bg-rose-50 border-rose-200" : "bg-white border-slate-200"}`}>
+       <div className="text-slate-500 text-sm">{label}</div>
+       <div className="text-3xl font-bold mt-1">{value}</div>
+     </div>
+   );
+ }
+
+ // ===== CSV Helpers =====
+ function safeCSV(v: string) {
+   const needs = /[",\n]/.test(v);
+   const s = v.replace(/"/g, '""');
+   return needs ? `"${s}"` : s;
+ }
+
+ function parseCSV(text: string): { headers: string[]; rows: Record<string, string>[] } {
+   const lines = text.replace(/\r/g, "").split("\n").filter(Boolean);
+   if (lines.length === 0) return { headers: [], rows: [] };
+   const headers = splitCSVLine(lines[0]);
+   const rows = lines.slice(1).map((ln) => {
+     const cells = splitCSVLine(ln);
+     const obj: Record<string, string> = {};
+     headers.forEach((h, i) => (obj[h] = cells[i] || ""));
+     return obj;
+   });
+   return { headers, rows };
+ }
+
+ function splitCSVLine(ln: string): string[] {
+   const out: string[] = [];
+   let cur = "";
+   let inQ = false;
+   for (let i = 0; i < ln.length; i++) {
+     const ch = ln[i];
+     if (ch === '"') {
+       if (inQ && ln[i + 1] === '"') { cur += '"'; i++; }
+       else { inQ = !inQ; }
+     } else if (ch === "," && !inQ) {
+       out.push(cur); cur = "";
+     } else {
+       cur += ch;
+     }
+   }
+   out.push(cur);
+   return out.map((s) => s.trim());
+ }
